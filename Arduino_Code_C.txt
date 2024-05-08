@@ -1,0 +1,203 @@
+#include <LiquidCrystal.h>
+
+
+
+SoftwareSerial mySerial(8,9);
+
+const int rs = A0, en = A1, d4 = A2, d5 = A3, d6 = A4, d7 = A5;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+int temper = 0;
+int i = 0;
+
+int tmp;
+char str[15];
+
+String soil_status;
+String getStr;
+
+const int motor = 5;//pwm
+const int soil_sen = 3;
+const int buzzer = 13;
+
+
+
+
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(soil_sen, INPUT);
+  pinMode(motor, OUTPUT);
+  digitalWrite(motor, HIGH); // stop
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(buzzer, LOW); // stop buzzing
+
+
+  lcd.begin(16, 2);
+  lcd.setCursor(0, 0);
+  lcd.print("Agrilture Motor");
+  lcd.setCursor(0, 1);
+  lcd.print("Contl using GSM");
+ // mySerial.print(" Agriculture Motor");
+  delay(1000);
+
+  //----------------------gsm-----------------
+  lcd.setCursor(0, 0);
+  lcd.print("Gsm Module      ");
+  lcd.setCursor(0, 1);
+  lcd.print("Initilizing.... ");
+  delay(1000);
+
+  mySerial.begin(9600);
+  delay(1000);
+  mySerial.println("AT+CNMI=2,2,0,0,0");
+  delay(3000);
+  mySerial.println("AT+CMGF=1");
+  delay(3000);
+  mySerial.println("AT+CMGS=\"+917981711009\"\r"); // Replace x with mobile number
+  delay(3000);
+  mySerial.println("System is ready to send Messages.");// The SMS text you want to send
+  delay(3000);
+  mySerial.println((char)26); // ASCII code of CTRL+Z
+  delay(3000);
+  lcd.setCursor(0, 0);
+  lcd.print("Gsm Module       ");
+  lcd.setCursor(0, 1);
+  lcd.print("Initilized..... ");
+  Serial.println("Gsm Module Initilized.");
+  delay(1000);
+  lcd.clear();
+}//setup
+
+
+void loop()
+{
+  int soil_sen_data = digitalRead(soil_sen);
+  if (soil_sen_data == 0)//wet
+  {
+    soil_status = "wet";
+    digitalWrite(motor, HIGH)  ;//off
+    Serial.println("off");
+    lcd.setCursor(0, 0);
+    lcd.print("Soil:");
+    lcd.setCursor(5, 0);
+    lcd.print(soil_status );
+    lcd.setCursor(0, 1);
+    lcd.print("MOTOR:");
+    lcd.setCursor(6, 1);
+    lcd.print("OFF");
+    delay(1000);
+    lcd.clear();
+
+  }
+  else
+  {
+    digitalWrite(motor, LOW)  ;//on
+   Serial.println("ON");
+    lcd.setCursor(0, 0);
+    lcd.print("Soil:");
+    lcd.setCursor(5, 0)
+    lcd.print(soil_status );
+    lcd.setCursor(0, 1);
+    lcd.print("MOTOR:");
+    lcd.setCursor(6, 1);
+    lcd.print("ON");
+    delay(1000);
+    lcd.clear();
+    soil_status = "Dry";
+  }
+
+
+ //----------------------gsm--------------------------
+  while (mySerial.available())
+  {
+    lcd.setCursor(0, 0);
+    lcd.print("loop-1       ");
+    delay(500);
+    i = 0;
+    if (mySerial.find('*'))
+    {
+      //delay(1000);
+      while (mySerial.available())
+      {
+        char inChar =  mySerial.read();
+        str[i++] = inChar;
+        Serial.println(str[i]);
+        if (inChar == '#')
+        {
+          temper = 1;
+          str[i - 1] = '\0';
+          return;
+        }
+      }
+       Serial.println(str);
+    }
+  
+
+
+
+  ////////////////////////////////////////
+  if (temper == 1)
+  {
+    lcd.setCursor(0, 0);
+    lcd.print("Msg Rcvd     ");
+    lcd.setCursor(0, 1);
+    lcd.print(str);
+    Serial.println("Msg Rcvd");
+    delay(1000);
+    digitalWrite(buzzer, HIGH); // buzz
+    delay(500);
+    digitalWrite(buzzer, LOW); // stop buzzing
+    delay(300);
+    lcd.clear();
+    temper = 0;
+
+    getStr="Hi,Message from kit.Soil status is:";
+    getStr+=soil_status;
+    getStr+=".";
+    //getStr+="Switch ON/Off the motor based on status.";
+    //---------------- status sms-----------------------------
+    if (!(strncmp(str, "status", 6)))
+    {
+
+      lcd.print("  Reading     ");
+      lcd.setCursor(0, 1);
+      lcd.print("  Status..... ");
+      delay(600);
+      lcd.clear();
+      //--------------------------------------
+      Send_sms_status();
+      //----------------------------------
+
+    }
+  }//temp
+
+}//loop
+
+
+void Send_sms_status()
+{
+  lcd.setCursor(0, 0);
+  lcd.print("Sending Status");
+  lcd.setCursor(0, 1);
+  lcd.print("SMS.......... ");
+  mySerial.println("AT+CNMI=2,2,0,0,0");
+  delay(3000);
+  mySerial.println("AT+CMGF=1");
+  delay(3000);
+  mySerial.println("AT+CMGS=\"+917981711009\"\r"); // Replace x with mobile number
+  delay(3000);
+
+  delay(3000);
+  mySerial.println((char)26); // ASCII code of CTRL+Z
+  delay(3000);
+  Serial.println("Status   sent");
+  lcd.setCursor(0, 0);
+  lcd.print("Message         ");
+  lcd.setCursor(0, 1);
+  lcd.print("Sent........... ");
+  delay(1000);
+  lcd.clear();
+
+}
